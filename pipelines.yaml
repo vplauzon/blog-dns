@@ -104,7 +104,7 @@ stages:
       - task: AzureFunctionApp@1
         inputs:
           azureSubscription: 'devops-deploy'
-          appName: 'vpl-blog-comment-function-app'
+          appName: 'vpl-blog-dns-function-app'
           appType: 'functionAppLinux'
           package: $(Pipeline.Workspace)/function/**/*.zip
           runtimeStack: 'DOCKER|microsoft/azure-functions-dotnet-core2.0:2.0'

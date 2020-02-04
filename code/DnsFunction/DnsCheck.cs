@@ -15,7 +15,7 @@ namespace DnsFunction
         [FunctionName("DnsCheck")]
         public static async Task RunAsync(
             [TimerTrigger("0 */15 * * * *")]TimerInfo timer,
-            //[TimerTrigger("0/5 * * * * *")]TimerInfo timer,
+            //[TimerTrigger("0/1 * * * * *")]TimerInfo timer,
             ILogger log)
         {
             //  Run the first task in background while waiting for the second one
