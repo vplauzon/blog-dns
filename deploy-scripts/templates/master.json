@@ -1,0 +1,125 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "deploymentUid": {
+            "type": "string",
+            "minLength": 5,
+            "metadata": {
+                "description": "Deployment's unique ID"
+            }
+        },
+        "releaseFolderUrl": {
+            "type": "string",
+            "minLength": 5,
+            "metadata": {
+                "description": "Release folder URL (in storage account)"
+            }
+        },
+        "sasToken": {
+            "type": "string",
+            "minLength": 5,
+            "metadata": {
+                "description": "Container's SAS token"
+            }
+        },
+        "keyVaultName": {
+            "metadata": {
+                "description": "Name of the key vault"
+            },
+            "type": "string"
+        },
+        "functionStorageAccountName": {
+            "metadata": {
+                "description": "Name of the storage account used by Azure function"
+            },
+            "type": "string"
+        },
+        "appInsightsName": {
+            "metadata": {
+                "description": "Name of the app insights pre-deployed in the same resource group"
+            },
+            "type": "string"
+        },
+        "functionAppName": {
+            "metadata": {
+                "description": "..."
+            },
+            "type": "string"
+        },
+        "appPlanName": {
+            "metadata": {
+                "description": "..."
+            },
+            "defaultValue": "blog-app-plan",
+            "type": "string"
+        },
+        "githubToken": {
+            "metadata": {
+                "description": "Personal Access Token of GitHub"
+            },
+            "type": "string"
+        }
+    },
+    "variables": {
+        "Key Vault Deployment": "[concat('key-vault-', parameters('deploymentUid'))]",
+        "Api Comment Deployment": "[concat('api-comment-', parameters('deploymentUid'))]",
+        "Function Deployment": "[concat('function-', parameters('deploymentUid'))]"
+    },
+    "resources": [
+        {
+            "apiVersion": "2019-05-01",
+            "type": "Microsoft.Resources/deployments",
+            "name": "[variables('Function Deployment')]",
+            "dependsOn": [
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[concat(parameters('releaseFolderUrl'), '/templates/function.json?', parameters('sasToken'))]"
+                },
+                "parameters": {
+                    "githubToken": {
+                        "value": "[parameters('githubToken')]"
+                    },
+                    "storageAccountName": {
+                        "value": "[parameters('functionStorageAccountName')]"
+                    },
+                    "appInsightsInstrumentationKey": {
+                        "value": "[reference(resourceId('microsoft.insights/components/', parameters('appInsightsName')), '2015-05-01').InstrumentationKey]"
+                    },
+                    "functionAppName": {
+                        "value": "[parameters('functionAppName')]"
+                    },
+                    "appPlanName": {
+                        "value": "[parameters('appPlanName')]"
+                    }
+                }
+            }
+        },
+        {
+            "apiVersion": "2019-05-01",
+            "type": "Microsoft.Resources/deployments",
+            "name": "[variables('Key Vault Deployment')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Resources/deployments', variables('Function Deployment'))]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[concat(parameters('releaseFolderUrl'), '/templates/key-vault.json?', parameters('sasToken'))]"
+                },
+                "parameters": {
+                    "keyVaultName": {
+                        "value": "[parameters('keyVaultName')]"
+                    },
+                    "clientIdentity": {
+                        "value": "[reference(variables('Function Deployment'), '2019-05-01').outputs.identity.value]"
+                    }
+                }
+            }
+        }
+    ],
+    "outputs": {
+    }
+}

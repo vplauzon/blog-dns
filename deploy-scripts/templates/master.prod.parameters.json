@@ -1,0 +1,24 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "keyVaultName": {
+            "value": "vpl-blog-dns-kv"
+        },
+        "functionStorageAccountName": {
+            "value": "vplblogdnsfunction"
+        },
+        "appInsightsName": {
+            "value": "blog-insights"
+        },
+        "functionAppName": {
+            "value": "vpl-blog-dns-function-app"
+        },
+        "githubToken": {
+            "value": "@Microsoft.KeyVault(SecretUri=https://vpl-blog-comment-kv.vault.azure.net/secrets/token/748f9a9e51714977b26c2753424a5bc3)"
+        },
+        "apimName": {
+            "value": "vpl-blog-apim"
+        }
+    }
+}

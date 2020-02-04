@@ -1,0 +1,54 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "keyVaultName": {
+            "metadata": {
+                "description": "Name of the key vault"
+            },
+            "type": "string"
+        },
+        "clientIdentity": {
+            "metadata": {
+                "description": "Identity of the client accessing the Key Vault (should be function app MSI)"
+            },
+            "type": "object"
+        }
+    },
+    "variables": {
+    },
+    "resources": [
+        {
+            "apiVersion": "2018-02-14",
+            "type": "Microsoft.KeyVault/vaults",
+            "name": "[parameters('keyVaultName')]",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+            ],
+            "tags": {
+            },
+            "properties": {
+                "tenantId": "[subscription().tenantId]",
+                "accessPolicies": [
+                    {
+                        "tenantId": "[parameters('clientIdentity').tenantId]",
+                        "objectId": "[parameters('clientIdentity').principalId]",
+                        "permissions": {
+                            "secrets": [
+                                "get"
+                            ]
+                        }
+                    }
+                ],
+                "sku": {
+                    "family": "A",
+                    "name": "standard"
+                }
+            },
+            "resources": [
+            ]
+        }
+    ],
+    "outputs": {
+    }
+}
