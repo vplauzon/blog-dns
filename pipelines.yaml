@@ -1,0 +1,110 @@
+# Help:  https://aka.ms/yaml
+
+resources:
+- repo: self
+
+variables:  []
+
+trigger:
+- master
+
+stages:
+  - stage:  build
+    dependsOn:  []
+    variables:  []
+    jobs:
+    - job:  main
+      dependsOn:  []
+      variables:  []
+      continueOnError:  false
+      pool:
+        vmImage: 'ubuntu-latest'
+      steps:
+      # Publish the function project
+      - task: DotNetCoreCLI@2
+        displayName: 'dotnet publish'
+        inputs:
+          command: publish
+          publishWebProjects: false
+          projects: '**/*.csproj'
+          arguments: '-o function'
+          zipAfterPublish: true
+          modifyOutputPath: true
+      # Publish "function" artefact
+      - task: PublishBuildArtifacts@1
+        displayName: "Publish artifact:  function"
+        inputs:
+          PathtoPublish: function
+          ArtifactName: function
+      # Publish "deploy-scripts" artefact
+      - task: PublishBuildArtifacts@1
+        displayName: 'Publish Artifact: deploy-scripts'
+        inputs:
+          PathtoPublish: deploy-scripts
+          ArtifactName: deploy-scripts
+  - stage:  release
+    dependsOn:  build
+    variables:
+      location: northcentralus
+      rg: blog
+      deploy-storage-name: vplblogdeploy
+      deploy-container-name: artefacts
+      folder:  $(System.TeamProject)/$(Build.DefinitionName)/$(Build.BuildId)/$(System.StageName)/$(System.StageAttempt)
+      deployment-uid:  $(System.TeamProject)-$(Build.DefinitionName)-$(Build.BuildId)-$(System.StageName)-$(System.StageAttempt)
+    jobs:
+    - job:  main
+      dependsOn:  []
+      variables:  []
+      pool:
+        vmImage: ubuntu-latest
+      steps:
+      # Don't checkout repo
+      - checkout: none
+      # Download deploy-scripts artefact from previous stage
+      - download: current
+        displayName:  Download deploy-scripts
+        artifact: deploy-scripts
+      # Download function artefact from previous stage
+      - download: current
+        displayName:  Download function
+        artifact: function
+      # Copy files to storage
+      - task: AzureCLI@2
+        displayName: Copy files to storage
+        inputs:
+          azureSubscription: 'devops-deploy'
+          workingDirectory:  $(Pipeline.Workspace)/deploy-scripts
+          scriptType: 'bash'
+          scriptLocation: scriptPath
+          scriptPath: $(Pipeline.Workspace)/deploy-scripts/copy-artefacts.sh
+          arguments: https://$(deploy-storage-name).blob.core.windows.net/$(deploy-container-name)/$(folder)
+      # Create storage SAS Token
+      - task: AzureCLI@2
+        displayName: Create SAS Token
+        inputs:
+          azureSubscription: 'devops-deploy'
+          workingDirectory:  $(Pipeline.Workspace)/deploy-scripts
+          scriptType: 'bash'
+          scriptLocation: scriptPath
+          scriptPath: $(Pipeline.Workspace)/deploy-scripts/create-sas-token.sh
+          arguments: $(deploy-storage-name)
+      # Deploy ARM template from artefact files
+      - task: AzureResourceGroupDeployment@2
+        displayName: Deployment - master.json
+        inputs:
+          azureSubscription: devops-deploy
+          resourceGroupName: $(rg)
+          location: $(location)
+          templateLocation:  Linked artifact
+          csmFile: $(Pipeline.Workspace)/deploy-scripts/templates/master.json
+          csmParametersFile: $(Pipeline.Workspace)/deploy-scripts/templates/master.prod.parameters.json
+          overrideParameters: -deploymentUid $(deployment-uid) -sasToken $(sas) -releaseFolderUrl https://$(deploy-storage-name).blob.core.windows.net/$(deploy-container-name)/$(folder)
+        timeoutInMinutes: 8
+      # Deploy function app
+      - task: AzureFunctionApp@1
+        inputs:
+          azureSubscription: 'devops-deploy'
+          appName: 'vpl-blog-comment-function-app'
+          appType: 'functionAppLinux'
+          package: $(Pipeline.Workspace)/function/**/*.zip
+          runtimeStack: 'DOCKER|microsoft/azure-functions-dotnet-core2.0:2.0'
