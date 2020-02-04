@@ -6,6 +6,7 @@ using System.Net;
 using System.Threading.Tasks;
 using System.Collections.Immutable;
 using Octokit;
+using System.Linq;
 
 namespace DnsFunction
 {
@@ -22,7 +23,7 @@ namespace DnsFunction
             var target = await Dns.GetHostEntryAsync("vplauzon.github.io");
             var source = await sourceTask;
 
-            if (source.AddressList.ToImmutableSortedSet().SetEquals(target.AddressList))
+            if (Compare(target.AddressList, source.AddressList))
             {
                 log.LogInformation("DNS entries are identical");
             }
@@ -34,6 +35,16 @@ namespace DnsFunction
 
                 await PushChangeAsync(target.AddressList);
             }
+        }
+
+        private static bool Compare(IPAddress[] source, IPAddress[] target)
+        {
+            var sourceText = from ip in source
+                             select ip.ToString();
+            var targetText = from ip in target
+                             select ip.ToString();
+
+            return sourceText.ToImmutableSortedSet().SetEquals(targetText);
         }
 
         private static Task PushChangeAsync(IPAddress[] addressList)
