@@ -15,7 +15,7 @@
             "value": "vpl-blog-dns-function-app"
         },
         "githubToken": {
-            "value": "@Microsoft.KeyVault(SecretUri=https://vpl-blog-comment-kv.vault.azure.net/secrets/token/748f9a9e51714977b26c2753424a5bc3)"
+            "value": "@Microsoft.KeyVault(SecretUri=https://vpl-blog-dns-kv.vault.azure.net/secrets/token/402ec96c6d5e4ece995516863663981d)"
         }
     }
 }
