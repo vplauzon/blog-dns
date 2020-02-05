@@ -7,6 +7,8 @@ using System.Threading.Tasks;
 using System.Collections.Immutable;
 using Octokit;
 using System.Linq;
+using System.Text.Json;
+using System.Collections.Generic;
 
 namespace DnsFunction
 {
@@ -33,7 +35,7 @@ namespace DnsFunction
                 log.LogInformation($"Source:  {string.Join(", ", (object[])source.AddressList)}");
                 log.LogInformation($"Target:  {string.Join(", ", (object[])target.AddressList)}");
 
-                await PushChangeAsync(target.AddressList);
+                await PushChangeAsync(target.AddressList, log);
             }
         }
 
@@ -47,18 +49,68 @@ namespace DnsFunction
             return sourceText.ToImmutableSortedSet().SetEquals(targetText);
         }
 
-        private static Task PushChangeAsync(IPAddress[] addressList)
+        private static async Task PushChangeAsync(IPAddress[] addressList, ILogger log)
         {
-            var client = GetGitHubClient();
+            const string REPO_OWNER = "vplauzon";
+            const string REPO_NAME = "shared-infra-dns";
 
-            throw new NotImplementedException();
+            var client = GetGitHubClient();
+            var repo = await client.Repository.Get(REPO_OWNER, REPO_NAME);
+            var parametersContent = await client.Repository.Content.GetAllContentsByRef(
+                repo.Id,
+                "dns.parameters.json",
+                "master");
+
+            if (parametersContent.Count != 1)
+            {
+                throw new InvalidOperationException(
+                    $"DNS Parameters content count is {parametersContent.Count}");
+            }
+
+            var content = parametersContent[0].Content;
+
+            log.LogInformation($"Old content:  {content}");
+            var fileMap = JsonSerializer.Deserialize<IDictionary<string, object>>(content);
+            var parameters = (JsonElement)fileMap["parameters"];
+            var nonBlogIps = from p in parameters.EnumerateObject()
+                             where p.Name != "blogIps"
+                             select KeyValuePair.Create(p.Name, (object)p.Value);
+            var newBlogIps = from ip in addressList
+                             select new { ipv4Address = ip.ToString() };
+            var newBlogIpsPair = KeyValuePair
+                .Create("blogIps", (object)new { value = newBlogIps });
+            var newParameters = new Dictionary<string, object>(
+                nonBlogIps.Append(newBlogIpsPair));
+
+            fileMap["parameters"] = newParameters;
+
+            var newContent = JsonSerializer.Serialize(
+                fileMap,
+                new JsonSerializerOptions
+                {
+                    WriteIndented = true
+                });
+
+            log.LogInformation($"New content:  {newContent}");
+
+            // Create file request
+            var fileRequest = new UpdateFileRequest(
+                $"IPs changed by Azure Function",
+                newContent,
+                parametersContent[0].Sha,
+                "master")
+            {
+                Committer = new Committer("ip-reset", "ip-reset@ip-reset.com", DateTime.Now)
+            };
+
+            await client.Repository.Content.UpdateFile(repo.Id, "dns.parameters.json", fileRequest);
         }
 
         private static GitHubClient GetGitHubClient()
         {
             var githubToken = Environment.GetEnvironmentVariable("GITHUB_TOKEN");
             var basicAuth = new Credentials(githubToken);
-            var client = new GitHubClient(new ProductHeaderValue("user-comment"));
+            var client = new GitHubClient(new ProductHeaderValue("reset-ip"));
 
             client.Credentials = basicAuth;
 
