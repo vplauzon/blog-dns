@@ -14,7 +14,7 @@ namespace DnsFunction
 {
     public static class DnsCheck
     {
-        [FunctionName("DnsCheck")]
+        [FunctionName("dns-check")]
         public static async Task RunAsync(
             [TimerTrigger("0 */15 * * * *")]TimerInfo timer,
             //[TimerTrigger("0/1 * * * * *")]TimerInfo timer,
