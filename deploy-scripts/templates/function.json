@@ -35,7 +35,7 @@
         }
     },
     "variables": {
-        "Function App Timezone": "Canada Central Standard Time",
+        "Function App Timezone": "Eastern Standard Time",
         "Submit Function Name": "submit-comment"
     },
     "resources": [
